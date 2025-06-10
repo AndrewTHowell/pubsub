@@ -9,6 +9,7 @@ import (
 
 func main() {
 	b := broker.New(
+		10,
 		"animals.cats",
 		"animals.dogs",
 	)
@@ -21,7 +22,7 @@ func main() {
 		log.Fatalf("Subscribing to 'animals.cats' topic: %v", err)
 	}
 
-	pub.Publish("animals.cats", broker.Message{})
+	pub.Publish("animals.cats", broker.Message{Payload: "walter"})
 
 	select {
 	case c := <-catsChan:
