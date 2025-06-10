@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/andrewthowell/broker"
+	"pubsub/broker"
 )
 
 func main() {

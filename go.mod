@@ -1,3 +1,3 @@
-module github.com/andrewthowell
+module pubsub
 
 go 1.24.4
