@@ -2,6 +2,7 @@ package broker
 
 import (
 	"fmt"
+	"log"
 )
 
 type errTopicNotFound struct {
@@ -14,18 +15,20 @@ func (e errTopicNotFound) Error() string {
 
 func New(topics ...string) Broker {
 	messagesByTopic := make(map[string]*[]Message, len(topics))
+	offsetByGroupByTopic := make(map[string]map[string]int, len(topics))
 	for _, topic := range topics {
 		messagesByTopic[topic] = &[]Message{}
+		offsetByGroupByTopic[topic] = map[string]int{}
 	}
 	return Broker{
-		messagesByTopic: messagesByTopic,
-		offsetByGroup:   map[string]int{},
+		messagesByTopic:      messagesByTopic,
+		offsetByGroupByTopic: offsetByGroupByTopic,
 	}
 }
 
 type Broker struct {
-	messagesByTopic map[string]*[]Message
-	offsetByGroup   map[string]int
+	messagesByTopic      map[string]*[]Message
+	offsetByGroupByTopic map[string]map[string]int
 }
 
 func (b Broker) Publish(topic string, message Message) error {
@@ -39,16 +42,24 @@ func (b Broker) Publish(topic string, message Message) error {
 }
 
 func (b Broker) Subscribe(topic, group string, maxBufferSize int) (Poller, error) {
-	messages, ok := b.messagesByTopic[topic]
-	if !ok {
+	if _, ok := b.messagesByTopic[topic]; !ok {
+		// Check at subscribe time.
 		return nil, errTopicNotFound{topic: topic}
 	}
-	return b.poller(group, maxBufferSize, messages), nil
+	if _, ok := b.messagesByTopic[topic]; !ok {
+		// Check at subscribe time.
+		log.Panicf("topic %q present in messagesByTopic but not in offsetByGroup\n", topic)
+	}
+	return b.poller(topic, group, maxBufferSize), nil
 }
 
-func (b Broker) poller(group string, maxBufferSize int, messages *[]Message) Poller {
+func (b Broker) poller(topic, group string, maxBufferSize int) Poller {
 	return func() ([]Message, error) {
-		offset := b.offsetByGroup[group]
+		// Caller guarantees that these keys are present.
+		messages := b.messagesByTopic[topic]
+		offsetByGroup := b.offsetByGroupByTopic[topic]
+
+		offset := offsetByGroup[group]
 		if offset == len(*messages) {
 			// Group has polled all messages.
 			return nil, nil
@@ -59,7 +70,7 @@ func (b Broker) poller(group string, maxBufferSize int, messages *[]Message) Pol
 		messagesToPoll := *messages
 		messagesToPoll = messagesToPoll[offset:newOffset]
 
-		b.offsetByGroup[group] = newOffset
+		offsetByGroup[group] = newOffset
 		return messagesToPoll, nil
 	}
 }

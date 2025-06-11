@@ -28,6 +28,13 @@ func main() {
 	}
 
 	log.Printf("Polled messages: %+v", messages)
+
+	messages, err = poll()
+	if err != nil {
+		log.Fatalf("Polling 'animals.cats' topic: %v", err)
+	}
+
+	log.Printf("Polled messages: %+v", messages)
 }
 
 type Publisher interface {
