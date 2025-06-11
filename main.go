@@ -2,14 +2,12 @@ package main
 
 import (
 	"log"
-	"time"
 
 	"pubsub/broker"
 )
 
 func main() {
 	b := broker.New(
-		10,
 		"animals.cats",
 		"animals.dogs",
 	)
@@ -17,19 +15,19 @@ func main() {
 	var pub Publisher = b
 	var sub Subscriber = b
 
-	catsChan, err := sub.Subscribe("animals.cats")
+	poll, err := sub.Subscribe("animals.cats", "group-1", 10)
 	if err != nil {
 		log.Fatalf("Subscribing to 'animals.cats' topic: %v", err)
 	}
 
 	pub.Publish("animals.cats", broker.Message{Payload: "walter"})
 
-	select {
-	case c := <-catsChan:
-		log.Printf("Received cat: %v\n", c)
-	case <-time.After(5 * time.Second):
-		log.Fatalf("Timed out waiting for cat")
+	messages, err := poll()
+	if err != nil {
+		log.Fatalf("Polling 'animals.cats' topic: %v", err)
 	}
+
+	log.Printf("Polled messages: %+v", messages)
 }
 
 type Publisher interface {
@@ -37,5 +35,5 @@ type Publisher interface {
 }
 
 type Subscriber interface {
-	Subscribe(topic string) (<-chan broker.Message, error)
+	Subscribe(topic, group string, maxBufferSize int) (broker.Poller, error)
 }
