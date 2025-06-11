@@ -26,6 +26,7 @@ func New(topics ...string) Broker {
 	}
 }
 
+// TODO: concurrency control.
 type Broker struct {
 	messagesByTopic      map[string]*[]Message
 	offsetByGroupByTopic map[string]map[string]int
