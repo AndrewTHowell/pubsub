@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+option go_package = "pubsub/proto";
+
+package pubsub;
+
+import "google/protobuf/empty.proto";
+
+service Broker {
+    rpc Publish(PublishRequest) returns (google.protobuf.Empty) {}
+    rpc Poll(PollRequest) returns (PollResponse) {}
+}
+
+message PublishRequest {
+    string topic = 1;
+    repeated Message messages = 2;
+}
+
+message PollRequest {
+    string topic = 1;
+    string group = 2;
+    int32 limit = 3;
+}
+
+message PollResponse {
+    repeated Message messages = 1;
+}
+
+message Message {
+    string payload = 1;
+}
