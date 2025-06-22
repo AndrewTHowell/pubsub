@@ -27,7 +27,6 @@ func New(topics ...string) *Broker {
 	}
 }
 
-// TODO: concurrency control.
 type Broker struct {
 	mutex                sync.RWMutex
 	messagesByTopic      map[string]*[]Message
