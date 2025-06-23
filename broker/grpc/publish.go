@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -16,8 +17,10 @@ func (s Server) Publish(ctx context.Context, request *brokerpb.PublishRequest) (
 		return nil, fmt.Errorf("publishing : %w", err)
 	}
 
-	s.svc.Publish(request.GetTopic(), s.convertToMessages(request.GetMessages()...)...)
-
+	if err := s.svc.Publish(request.GetTopic(), s.convertToMessages(request.GetMessages()...)...); err != nil {
+		return nil, fmt.Errorf("publishing : %w", err)
+	}
+	log.Println("Published.")
 	return nil, nil
 }
 

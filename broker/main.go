@@ -18,8 +18,10 @@ func main() {
 	}
 
 	srv := grpc.NewServer()
-	brokerpb.RegisterBrokerServer(srv, brokergrpc.NewServer())
+	brokerpb.RegisterBrokerServer(srv, brokergrpc.NewServer("animals.cats"))
 
 	log.Println("Starting Broker.")
-	srv.Serve(lis)
+	if srv.Serve(lis); err != nil {
+		log.Fatalf("server exited: %v", err)
+	}
 }
