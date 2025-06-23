@@ -1,8 +1,11 @@
-syntax = "proto3";
+edition = "2023";
 
-option go_package = "pubsub/proto";
+import "google/protobuf/go_features.proto";
+option features.(pb.go).api_level = API_OPAQUE;
 
-package pubsub;
+option go_package = "pubsub/broker/proto/broker";
+
+package pubsub.broker;
 
 import "google/protobuf/empty.proto";
 

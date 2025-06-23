@@ -1,4 +1,4 @@
-package broker
+package svc
 
 import (
 	"fmt"
@@ -33,7 +33,7 @@ type Broker struct {
 	offsetByGroupByTopic map[string]map[string]int
 }
 
-func (b *Broker) Publish(topic string, message Message) error {
+func (b *Broker) Publish(topic string, newMessages ...Message) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -42,7 +42,7 @@ func (b *Broker) Publish(topic string, message Message) error {
 		return errTopicNotFound{topic: topic}
 	}
 
-	*messages = append(*messages, message)
+	*messages = append(*messages, newMessages...)
 	return nil
 }
 
