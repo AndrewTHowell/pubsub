@@ -12,11 +12,11 @@ import (
 
 func (s Server) MoveOffset(ctx context.Context, request *brokerpb.MoveOffsetRequest) (*emptypb.Empty, error) {
 	if err := s.validateMoveOffsetRequest(request); err != nil {
-		return nil, fmt.Errorf("moving offset : %w", err)
+		return nil, fmt.Errorf("moving offset: %w", err)
 	}
 
 	if err := s.svc.MoveOffset(request.GetTopic(), request.GetGroup(), int(request.GetDelta())); err != nil {
-		return nil, fmt.Errorf("moving offset : %w", err)
+		return nil, fmt.Errorf("moving offset: %w", err)
 	}
 	return nil, nil
 }

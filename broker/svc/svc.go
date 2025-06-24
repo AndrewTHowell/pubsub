@@ -2,7 +2,8 @@ package svc
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 	"sync"
 )
 
@@ -85,7 +86,8 @@ func (b *Broker) Poll(topic, group string, maxBufferSize int) ([]Message, error)
 	}
 	offsetByGroup, ok := b.offsetByGroupByTopic[topic]
 	if !ok {
-		log.Panicf("topic %q present in messagesByTopic but not in offsetByGroup\n", topic)
+		slog.Error("topic present in messagesByTopic but not in offsetByGroup", slog.String("topic", topic))
+		os.Exit(1)
 	}
 
 	offset := offsetByGroup[group]
@@ -112,7 +114,8 @@ func (b *Broker) MoveOffset(topic, group string, delta int) error {
 	}
 	offsetByGroup, ok := b.offsetByGroupByTopic[topic]
 	if !ok {
-		log.Panicf("topic %q present in messagesByTopic but not in offsetByGroup\n", topic)
+		slog.Error("topic present in messagesByTopic but not in offsetByGroup", slog.String("topic", topic))
+		os.Exit(1)
 	}
 
 	newOffset := offsetByGroup[group] + delta

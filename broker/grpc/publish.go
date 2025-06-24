@@ -12,11 +12,11 @@ import (
 
 func (s Server) Publish(ctx context.Context, request *brokerpb.PublishRequest) (*emptypb.Empty, error) {
 	if err := s.validatePublishRequest(request); err != nil {
-		return nil, fmt.Errorf("publishing : %w", err)
+		return nil, fmt.Errorf("publishing: %w", err)
 	}
 
 	if err := s.svc.Publish(request.GetTopic(), s.convertToMessages(request.GetMessages()...)...); err != nil {
-		return nil, fmt.Errorf("publishing : %w", err)
+		return nil, fmt.Errorf("publishing: %w", err)
 	}
 	return nil, nil
 }

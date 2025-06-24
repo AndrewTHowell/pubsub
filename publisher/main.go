@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -19,7 +20,8 @@ type Config struct {
 func main() {
 	cfg, err := config.ParseYAML[Config]("publisher/config.yml", "config")
 	if err != nil {
-		log.Fatalf("parsing config: %v", err)
+		slog.Error("parsing config", slog.Any("error", err))
+		os.Exit(1)
 	}
 
 	var opts []grpc.DialOption
@@ -27,7 +29,8 @@ func main() {
 
 	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", cfg.Port), opts...)
 	if err != nil {
-		log.Fatalf("fail to dial: %v", err)
+		slog.Error("fail to dial", slog.Any("error", err))
+		os.Exit(1)
 	}
 	defer conn.Close()
 
@@ -40,7 +43,8 @@ func main() {
 		}.Build()},
 	}.Build()
 	if _, err := client.Publish(context.Background(), request); err != nil {
-		log.Fatalf("publishing: %v", err)
+		slog.Error("publishing", slog.Any("error", err))
+		os.Exit(1)
 	}
 }
 
