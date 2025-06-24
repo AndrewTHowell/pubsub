@@ -12,6 +12,7 @@ import "google/protobuf/empty.proto";
 service Broker {
     rpc Publish(PublishRequest) returns (google.protobuf.Empty) {}
     rpc Poll(PollRequest) returns (PollResponse) {}
+    rpc MoveOffset(MoveOffsetRequest) returns (google.protobuf.Empty) {}
 }
 
 message PublishRequest {
@@ -29,6 +30,12 @@ message PollResponse {
     repeated Message messages = 1;
 }
 
+message MoveOffsetRequest {
+    string topic = 1;
+    string group = 2;
+    int32 delta = 3;
+}
+
 message Message {
-    string payload = 1;
+    bytes payload = 1;
 }

@@ -46,44 +46,59 @@ func (b *Broker) Publish(topic string, newMessages ...Message) error {
 	return nil
 }
 
-func (b *Broker) Subscribe(topic, group string, maxBufferSize int) (Poller, error) {
+func (b *Broker) Subscribe(topic, group string, maxBufferSize int) Poller {
+	return func() ([]Message, error) {
+		messages, err := b.Poll(topic, group, maxBufferSize)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := b.MoveOffset(topic, group, len(messages)); err != nil {
+			return nil, err
+		}
+
+		return messages, nil
+	}
+}
+
+func (b *Broker) Poll(topic, group string, maxBufferSize int) ([]Message, error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 
-	if _, ok := b.messagesByTopic[topic]; !ok {
-		// Check at subscribe time.
-		return nil, errTopicNotFound{topic: topic}
+	messages, ok := b.messagesByTopic[topic]
+	if !ok {
+		return nil, fmt.Errorf("polling: %w", errTopicNotFound{topic: topic})
 	}
-	if _, ok := b.messagesByTopic[topic]; !ok {
-		// Check at subscribe time.
+	offsetByGroup, ok := b.offsetByGroupByTopic[topic]
+	if !ok {
 		log.Panicf("topic %q present in messagesByTopic but not in offsetByGroup\n", topic)
 	}
-	return b.poller(topic, group, maxBufferSize), nil
+
+	offset := offsetByGroup[group]
+	if offset == len(*messages) {
+		// Group has polled all messages.
+		return nil, nil
+	}
+
+	end := min(offset+maxBufferSize, len(*messages))
+
+	polledMessages := *messages
+	polledMessages = polledMessages[offset:end]
+
+	return polledMessages, nil
 }
 
-func (b *Broker) poller(topic, group string, maxBufferSize int) Poller {
-	return func() ([]Message, error) {
-		b.mutex.Lock()
-		defer b.mutex.Unlock()
+func (b *Broker) MoveOffset(topic, group string, offset int) error {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
-		// Caller guarantees that these keys are present.
-		messages := b.messagesByTopic[topic]
-		offsetByGroup := b.offsetByGroupByTopic[topic]
-
-		offset := offsetByGroup[group]
-		if offset == len(*messages) {
-			// Group has polled all messages.
-			return nil, nil
-		}
-
-		newOffset := min(offset+maxBufferSize, len(*messages))
-
-		messagesToPoll := *messages
-		messagesToPoll = messagesToPoll[offset:newOffset]
-
-		offsetByGroup[group] = newOffset
-		return messagesToPoll, nil
+	offsetByGroup, ok := b.offsetByGroupByTopic[topic]
+	if !ok {
+		return fmt.Errorf("committing: %w", errTopicNotFound{topic: topic})
 	}
+	offsetByGroup[group] = offsetByGroup[group] + offset
+
+	return nil
 }
 
 type Poller func() ([]Message, error)
