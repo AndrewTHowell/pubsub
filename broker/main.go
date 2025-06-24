@@ -15,7 +15,8 @@ import (
 )
 
 type config struct {
-	Port int `koanf:"port"`
+	Port   int      `koanf:"port"`
+	Topics []string `koanf:"topics"`
 }
 
 // Global koanf instance. Use "." as the key path delimiter. This can be "/" or any character.
@@ -35,7 +36,7 @@ func main() {
 	}
 
 	srv := grpc.NewServer()
-	brokerpb.RegisterBrokerServer(srv, brokergrpc.NewServer("animals.cats"))
+	brokerpb.RegisterBrokerServer(srv, brokergrpc.NewServer(cfg.Topics...))
 
 	log.Printf("Starting Broker, listening on port %d.\n", cfg.Port)
 	if srv.Serve(lis); err != nil {
