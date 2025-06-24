@@ -5,29 +5,22 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	brokerpb "pubsub/broker/proto/broker"
+	"pubsub/common/config"
 )
 
-type config struct {
+type Config struct {
 	Port int `koanf:"port"`
 }
 
-// Global koanf instance. Use "." as the key path delimiter. This can be "/" or any character.
-var k = koanf.New(".")
-
 func main() {
-	// Load YAML config.
-	if err := k.Load(file.Provider("subscriber/config.yml"), yaml.Parser()); err != nil {
-		log.Fatalf("loading config: %v", err)
+	cfg, err := config.ParseYAML[Config]("subscriber/config.yml", "config")
+	if err != nil {
+		log.Fatalf("parsing config: %v", err)
 	}
-	var cfg config
-	k.Unmarshal("config", &cfg)
 
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))

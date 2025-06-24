@@ -5,30 +5,23 @@ import (
 	"log"
 	"net"
 
-	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/v2"
 	"google.golang.org/grpc"
 
 	brokergrpc "pubsub/broker/grpc"
 	brokerpb "pubsub/broker/proto/broker"
+	"pubsub/common/config"
 )
 
-type config struct {
+type Config struct {
 	Port   int      `koanf:"port"`
 	Topics []string `koanf:"topics"`
 }
 
-// Global koanf instance. Use "." as the key path delimiter. This can be "/" or any character.
-var k = koanf.New(".")
-
 func main() {
-	// Load YAML config.
-	if err := k.Load(file.Provider("broker/config.yml"), yaml.Parser()); err != nil {
-		log.Fatalf("loading config: %v", err)
+	cfg, err := config.ParseYAML[Config]("broker/config.yml", "config")
+	if err != nil {
+		log.Fatalf("parsing config: %v", err)
 	}
-	var cfg config
-	k.Unmarshal("config", &cfg)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", cfg.Port))
 	if err != nil {
