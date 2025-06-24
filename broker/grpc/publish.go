@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	errdetailspb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -47,12 +48,17 @@ func (Server) validatePublishRequest(request *brokerpb.PublishRequest) error {
 		}
 	}
 	if len(violations) != 0 {
-		st := status.New(codes.InvalidArgument, "invalid publish request")
-		dst, err := st.WithDetails(&errdetailspb.BadRequest{FieldViolations: violations})
-		if err != nil {
-			return st.Err()
-		}
-		return dst.Err()
+		return NewInvalidArgument("invalid publish request", violations...)
 	}
 	return nil
+}
+
+func NewInvalidArgument(msg string, violations ...*errdetailspb.BadRequest_FieldViolation) error {
+	st := status.New(codes.InvalidArgument, msg)
+	dst, err := st.WithDetails(&errdetailspb.BadRequest{FieldViolations: violations})
+	if err != nil {
+		slog.Error("Constructing new gRPC status error with details", slog.Any("error", err))
+		return st.Err()
+	}
+	return dst.Err()
 }

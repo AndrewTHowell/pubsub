@@ -42,18 +42,35 @@ func main() {
 		Messages: []*brokerpb.Message{brokerpb.Message_builder{}.Build()},
 	}.Build()
 	if _, err := client.Publish(context.Background(), request); err != nil {
-		st := status.Convert(err)
-		var errDetails any
-		for _, d := range st.Details() {
-			switch info := d.(type) {
-			case *errdetails.BadRequest:
-				errDetails = info.GetFieldViolations()
-			default:
-				slog.Error("Unexpected error details", slog.Any("details", info))
-			}
-		}
-		slog.Error("Publishing", slog.Any("error", err), slog.Any("details", errDetails))
+		err := FromStatusError(err)
+		slog.Error("Publishing", slog.Any("error", err))
 		os.Exit(1)
+	}
+}
+
+type Error struct {
+	err     error
+	details any
+}
+
+func (e Error) Error() string {
+	return fmt.Sprintf("%s details=%v", e.err, e.details)
+}
+
+func FromStatusError(err error) error {
+	st := status.Convert(err)
+	var errDetails any
+	for _, d := range st.Details() {
+		switch info := d.(type) {
+		case *errdetails.BadRequest:
+			errDetails = info.GetFieldViolations()
+		default:
+			slog.Error("Unsupported error details type", slog.Any("details", info))
+		}
+	}
+	return Error{
+		err:     st.Err(),
+		details: errDetails,
 	}
 }
 
