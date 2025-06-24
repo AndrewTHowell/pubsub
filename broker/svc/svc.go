@@ -14,6 +14,18 @@ func (e errTopicNotFound) Error() string {
 	return fmt.Sprintf("topic %q not found", e.topic)
 }
 
+type errInvalidOffsetDelta struct {
+	delta int
+}
+
+func (e errInvalidOffsetDelta) Error() string {
+	return fmt.Sprintf("offset delta %d is larger than the topic length", e.delta)
+}
+
+type Message struct {
+	Payload []byte
+}
+
 func New(topics ...string) *Broker {
 	messagesByTopic := make(map[string]*[]Message, len(topics))
 	offsetByGroupByTopic := make(map[string]map[string]int, len(topics))
@@ -45,6 +57,8 @@ func (b *Broker) Publish(topic string, newMessages ...Message) error {
 	*messages = append(*messages, newMessages...)
 	return nil
 }
+
+type Poller func() ([]Message, error)
 
 func (b *Broker) Subscribe(topic, group string, maxBufferSize int) Poller {
 	return func() ([]Message, error) {
@@ -88,21 +102,24 @@ func (b *Broker) Poll(topic, group string, maxBufferSize int) ([]Message, error)
 	return polledMessages, nil
 }
 
-func (b *Broker) MoveOffset(topic, group string, offset int) error {
+func (b *Broker) MoveOffset(topic, group string, delta int) error {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	offsetByGroup, ok := b.offsetByGroupByTopic[topic]
+	messages, ok := b.messagesByTopic[topic]
 	if !ok {
 		return fmt.Errorf("committing: %w", errTopicNotFound{topic: topic})
 	}
-	offsetByGroup[group] = offsetByGroup[group] + offset
+	offsetByGroup, ok := b.offsetByGroupByTopic[topic]
+	if !ok {
+		log.Panicf("topic %q present in messagesByTopic but not in offsetByGroup\n", topic)
+	}
+
+	newOffset := offsetByGroup[group] + delta
+	if newOffset > len(*messages) {
+		return fmt.Errorf("committing: %w", errInvalidOffsetDelta{delta: delta})
+	}
+	offsetByGroup[group] = newOffset
 
 	return nil
-}
-
-type Poller func() ([]Message, error)
-
-type Message struct {
-	Payload []byte
 }
