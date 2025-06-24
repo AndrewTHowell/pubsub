@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	brokerpb "pubsub/broker/proto/broker"
-	"pubsub/broker/svc"
 )
 
 func (s Server) Poll(ctx context.Context, request *brokerpb.PollRequest) (*brokerpb.PollResponse, error) {
@@ -18,6 +17,7 @@ func (s Server) Poll(ctx context.Context, request *brokerpb.PollRequest) (*broke
 	if err != nil {
 		return nil, fmt.Errorf("polling : %w", err)
 	}
+
 	return brokerpb.PollResponse_builder{
 		Messages: s.convertFromMessages(messages...),
 	}.Build(), nil
@@ -35,14 +35,4 @@ func (Server) validatePollRequest(request *brokerpb.PollRequest) error {
 		err = errors.Join(err, fmt.Errorf("'limit' field required"))
 	}
 	return err
-}
-
-func (Server) convertFromMessages(messages ...svc.Message) []*brokerpb.Message {
-	protoMessages := make([]*brokerpb.Message, len(messages))
-	for i, message := range messages {
-		protoMessages[i] = brokerpb.Message_builder{
-			Payload: message.Payload,
-		}.Build()
-	}
-	return protoMessages
 }

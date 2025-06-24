@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	brokerpb "pubsub/broker/proto/broker"
-	"pubsub/broker/svc"
 )
 
 func (s Server) Publish(ctx context.Context, request *brokerpb.PublishRequest) (*emptypb.Empty, error) {
@@ -36,14 +35,4 @@ func (Server) validatePublishRequest(request *brokerpb.PublishRequest) error {
 		}
 	}
 	return err
-}
-
-func (Server) convertToMessages(protoMessages ...*brokerpb.Message) []svc.Message {
-	messages := make([]svc.Message, len(protoMessages))
-	for i, protoMessage := range protoMessages {
-		messages[i] = svc.Message{
-			Payload: protoMessage.GetPayload(),
-		}
-	}
-	return messages
 }
