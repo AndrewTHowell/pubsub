@@ -22,13 +22,13 @@ type Config struct {
 func main() {
 	cfg, err := config.ParseYAML[Config]("broker/config.yml", "config")
 	if err != nil {
-		slog.Error("parsing config", slog.Any("error", err))
+		slog.Error("Parsing config", slog.Any("error", err))
 		os.Exit(1)
 	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", cfg.Port))
 	if err != nil {
-		slog.Error("failed to listen", slog.Any("error", err))
+		slog.Error("Failed to listen", slog.Any("error", err))
 		os.Exit(1)
 	}
 
@@ -37,7 +37,7 @@ func main() {
 
 	log.Printf("Starting Broker, listening on port %d.\n", cfg.Port)
 	if srv.Serve(lis); err != nil {
-		slog.Error("server exited", slog.Any("error", err))
+		slog.Error("Server exited", slog.Any("error", err))
 		os.Exit(1)
 	}
 }

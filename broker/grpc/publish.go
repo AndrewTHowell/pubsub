@@ -2,9 +2,11 @@ package grpc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	errdetailspb "google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	brokerpb "pubsub/broker/proto/broker"
@@ -22,17 +24,35 @@ func (s Server) Publish(ctx context.Context, request *brokerpb.PublishRequest) (
 }
 
 func (Server) validatePublishRequest(request *brokerpb.PublishRequest) error {
-	var err error
+	violations := []*errdetailspb.BadRequest_FieldViolation{}
 	if !request.HasTopic() {
-		err = errors.Join(err, fmt.Errorf("'topic' field required"))
+		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+			Field:  "topic",
+			Reason: "REQUIRED_FIELD",
+		})
 	}
 	if len(request.GetMessages()) == 0 {
-		err = errors.Join(err, fmt.Errorf("'messages' field must be at least length 1"))
+		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+			Field:       "messages",
+			Reason:      "BELOW_MIN_LENGTH",
+			Description: "Minimum length 1",
+		})
 	}
 	for i, msg := range request.GetMessages() {
 		if !msg.HasPayload() {
-			err = errors.Join(err, fmt.Errorf("'messages[%d].payload' field required", i))
+			violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+				Field:  fmt.Sprintf("messages[%d].payload", i),
+				Reason: "REQUIRED_FIELD",
+			})
 		}
 	}
-	return err
+	if len(violations) != 0 {
+		st := status.New(codes.InvalidArgument, "invalid publish request")
+		dst, err := st.WithDetails(&errdetailspb.BadRequest{FieldViolations: violations})
+		if err != nil {
+			return st.Err()
+		}
+		return dst.Err()
+	}
+	return nil
 }

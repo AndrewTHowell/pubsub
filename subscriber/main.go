@@ -21,7 +21,7 @@ type Config struct {
 func main() {
 	cfg, err := config.ParseYAML[Config]("subscriber/config.yml", "config")
 	if err != nil {
-		slog.Error("parsing config", slog.Any("error", err))
+		slog.Error("Parsing config", slog.Any("error", err))
 		os.Exit(1)
 	}
 
@@ -30,7 +30,7 @@ func main() {
 
 	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", cfg.Port), opts...)
 	if err != nil {
-		slog.Error("fail to dial", slog.Any("error", err))
+		slog.Error("Dialling", slog.Any("error", err))
 		os.Exit(1)
 	}
 	defer conn.Close()
@@ -44,7 +44,7 @@ func main() {
 			Limit: toPtr(int32(10)),
 		}.Build())
 		if err != nil {
-			slog.Error("polling", slog.Any("error", err))
+			slog.Error("Polling", slog.Any("error", err))
 			os.Exit(1)
 		}
 
@@ -58,7 +58,7 @@ func main() {
 			Delta: toPtr(int32(len(messages.GetMessages()))),
 		}.Build()
 		if _, err := client.MoveOffset(context.Background(), request); err != nil {
-			slog.Error("polling", slog.Any("error", err))
+			slog.Error("Moving offset", slog.Any("error", err))
 			os.Exit(1)
 		}
 	}
