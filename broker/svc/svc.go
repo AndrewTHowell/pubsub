@@ -104,5 +104,5 @@ func (b *Broker) MoveOffset(topic, group string, offset int) error {
 type Poller func() ([]Message, error)
 
 type Message struct {
-	Payload any
+	Payload []byte
 }

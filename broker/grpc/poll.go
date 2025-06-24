@@ -39,9 +39,9 @@ func (Server) validatePollRequest(request *brokerpb.PollRequest) error {
 
 func (Server) convertFromMessages(messages ...svc.Message) []*brokerpb.Message {
 	protoMessages := make([]*brokerpb.Message, len(messages))
-	for i := range messages {
+	for i, message := range messages {
 		protoMessages[i] = brokerpb.Message_builder{
-			Payload: nil,
+			Payload: message.Payload,
 		}.Build()
 	}
 	return protoMessages
