@@ -12,6 +12,7 @@ import (
 
 	brokerpb "pubsub/broker/proto/broker"
 	"pubsub/common/config"
+	grpcerrors "pubsub/common/grpc/errors"
 )
 
 type Config struct {
@@ -58,6 +59,7 @@ func main() {
 			Delta: toPtr(int32(len(messages.GetMessages()))),
 		}.Build()
 		if _, err := client.MoveOffset(context.Background(), request); err != nil {
+			err := grpcerrors.FromStatusError(err)
 			slog.Error("Moving offset", slog.Any("error", err))
 			os.Exit(1)
 		}

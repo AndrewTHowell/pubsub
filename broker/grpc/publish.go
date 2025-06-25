@@ -3,14 +3,12 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	errdetailspb "google.golang.org/genproto/googleapis/rpc/errdetails"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	brokerpb "pubsub/broker/proto/broker"
+	grpcerrors "pubsub/common/grpc/errors"
 )
 
 func (s Server) Publish(ctx context.Context, request *brokerpb.PublishRequest) (*emptypb.Empty, error) {
@@ -47,18 +45,9 @@ func (Server) validatePublishRequest(request *brokerpb.PublishRequest) error {
 			})
 		}
 	}
+
 	if len(violations) != 0 {
-		return NewInvalidArgument("invalid publish request", violations...)
+		return grpcerrors.NewInvalidArgument("invalid publish request", violations...)
 	}
 	return nil
-}
-
-func NewInvalidArgument(msg string, violations ...*errdetailspb.BadRequest_FieldViolation) error {
-	st := status.New(codes.InvalidArgument, msg)
-	dst, err := st.WithDetails(&errdetailspb.BadRequest{FieldViolations: violations})
-	if err != nil {
-		slog.Error("Constructing new gRPC status error with details", slog.Any("error", err))
-		return st.Err()
-	}
-	return dst.Err()
 }

@@ -2,10 +2,12 @@ package grpc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	brokerpb "pubsub/broker/proto/broker"
+	grpcerrors "pubsub/common/grpc/errors"
+
+	errdetailspb "google.golang.org/genproto/googleapis/rpc/errdetails"
 )
 
 func (s Server) Poll(ctx context.Context, request *brokerpb.PollRequest) (*brokerpb.PollResponse, error) {
@@ -24,15 +26,34 @@ func (s Server) Poll(ctx context.Context, request *brokerpb.PollRequest) (*broke
 }
 
 func (Server) validatePollRequest(request *brokerpb.PollRequest) error {
-	var err error
+	violations := []*errdetailspb.BadRequest_FieldViolation{}
 	if !request.HasTopic() {
-		err = errors.Join(err, fmt.Errorf("'topic' field required"))
+		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+			Field:  "topic",
+			Reason: "REQUIRED_FIELD",
+		})
 	}
 	if !request.HasGroup() {
-		err = errors.Join(err, fmt.Errorf("'group' field required"))
+		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+			Field:  "group",
+			Reason: "REQUIRED_FIELD",
+		})
 	}
 	if !request.HasLimit() {
-		err = errors.Join(err, fmt.Errorf("'limit' field required"))
+		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+			Field:  "limit",
+			Reason: "REQUIRED_FIELD",
+		})
+	} else if request.GetLimit() < 1 {
+		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+			Field:       "limit",
+			Reason:      "BELOW_MIN_VALUE",
+			Description: "Minimum value 1",
+		})
 	}
-	return err
+
+	if len(violations) != 0 {
+		return grpcerrors.NewInvalidArgument("invalid poll request", violations...)
+	}
+	return nil
 }
