@@ -27,8 +27,10 @@ func main() {
 	}
 
 	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
+	opts = append(opts,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(grpcerrors.UnaryClientInterceptor),
+	)
 	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", cfg.Port), opts...)
 	if err != nil {
 		slog.Error("Dialling", slog.Any("error", err))
@@ -59,7 +61,6 @@ func main() {
 			Delta: toPtr(int32(len(messages.GetMessages()))),
 		}.Build()
 		if _, err := client.MoveOffset(context.Background(), request); err != nil {
-			err := grpcerrors.FromStatusError(err)
 			slog.Error("Moving offset", slog.Any("error", err))
 			os.Exit(1)
 		}

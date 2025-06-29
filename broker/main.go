@@ -12,6 +12,7 @@ import (
 	brokergrpc "pubsub/broker/grpc"
 	brokerpb "pubsub/broker/proto/broker"
 	"pubsub/common/config"
+	grpcerrors "pubsub/common/grpc/errors"
 )
 
 type Config struct {
@@ -32,7 +33,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := grpc.NewServer()
+	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(grpcerrors.UnaryServerInterceptor))
 	brokerpb.RegisterBrokerServer(srv, brokergrpc.NewServer(cfg.Topics...))
 
 	log.Printf("Starting Broker, listening on port %d.\n", cfg.Port)

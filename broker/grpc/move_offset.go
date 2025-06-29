@@ -4,11 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	errdetailspb "google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	brokerpb "pubsub/broker/proto/broker"
-	grpcerrors "pubsub/common/grpc/errors"
+	commonerrors "pubsub/common/errors"
 )
 
 func (s Server) MoveOffset(ctx context.Context, request *brokerpb.MoveOffsetRequest) (*emptypb.Empty, error) {
@@ -23,26 +22,26 @@ func (s Server) MoveOffset(ctx context.Context, request *brokerpb.MoveOffsetRequ
 }
 
 func (Server) validateMoveOffsetRequest(request *brokerpb.MoveOffsetRequest) error {
-	violations := []*errdetailspb.BadRequest_FieldViolation{}
+	violations := []commonerrors.FieldViolation{}
 	if !request.HasTopic() {
-		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+		violations = append(violations, commonerrors.FieldViolation{
 			Field:  "topic",
 			Reason: "REQUIRED_FIELD",
 		})
 	}
 	if !request.HasGroup() {
-		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+		violations = append(violations, commonerrors.FieldViolation{
 			Field:  "group",
 			Reason: "REQUIRED_FIELD",
 		})
 	}
 	if !request.HasDelta() {
-		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+		violations = append(violations, commonerrors.FieldViolation{
 			Field:  "limit",
 			Reason: "REQUIRED_FIELD",
 		})
 	} else if request.GetDelta() < 0 {
-		violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+		violations = append(violations, commonerrors.FieldViolation{
 			Field:       "delta",
 			Reason:      "BELOW_MIN_VALUE",
 			Description: "Minimum value 0",
@@ -50,7 +49,7 @@ func (Server) validateMoveOffsetRequest(request *brokerpb.MoveOffsetRequest) err
 	}
 
 	if len(violations) != 0 {
-		return grpcerrors.NewInvalidArgument("invalid move offset request", violations...)
+		return commonerrors.NewInvalidArgument("invalid move offset request", violations...)
 	}
 	return nil
 }

@@ -26,8 +26,10 @@ func main() {
 	}
 
 	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
+	opts = append(opts,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(grpcerrors.UnaryClientInterceptor),
+	)
 	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", cfg.Port), opts...)
 	if err != nil {
 		slog.Error("Dialling", slog.Any("error", err))
@@ -40,11 +42,10 @@ func main() {
 	request := brokerpb.PublishRequest_builder{
 		Topic: toPtr("animals.cats"),
 		Messages: []*brokerpb.Message{brokerpb.Message_builder{
-			Payload: []byte("meow"),
+			Payload: nil,
 		}.Build()},
 	}.Build()
 	if _, err := client.Publish(context.Background(), request); err != nil {
-		err := grpcerrors.FromStatusError(err)
 		slog.Error("Publishing", slog.Any("error", err))
 		os.Exit(1)
 	}
