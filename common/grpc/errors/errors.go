@@ -2,7 +2,6 @@ package errors
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -14,55 +13,45 @@ import (
 	commonerrors "pubsub/common/errors"
 )
 
-type Error struct {
-	err     error
-	details any
-}
-
-func (e Error) Error() string {
-	if e.details == nil {
-		return e.err.Error()
-	}
-	return fmt.Sprintf("%s details=%v", e.err, e.details)
-}
-
 func FromGRPCError(err error) error {
 	st := status.Convert(err)
-	switch st.Code() {
-	case codes.InvalidArgument:
-		violations := []commonerrors.FieldViolation{}
-		if len(st.Details()) != 0 {
-			badRequestDetail := st.Details()[0].(*errdetailspb.BadRequest)
-			for _, violation := range badRequestDetail.GetFieldViolations() {
-				violations = append(violations, commonerrors.FieldViolation{
-					Field:       violation.Field,
-					Description: violation.Description,
-					Reason:      violation.Reason,
-				})
-			}
-		}
-		return commonerrors.NewInvalidArgument(st.Message(), violations...)
-	case codes.Unavailable:
-		return commonerrors.NewUnavailable(st.Message())
-	default:
-		slog.Error("Unsupported error type", slog.Any("error", err))
+
+	converter, ok := converterFromGRPCByCode[st.Code()]
+	if !ok {
+		slog.Error("Unsupported error type", slog.Any("error", err), slog.Any("status_error", st))
 		os.Exit(1)
 	}
-	return err
+	return converter(st.Message(), st.Details())
 }
 
-func ToGRPCError(err error) error {
-	invalidArg := commonerrors.InvalidArgument{}
-	if errors.As(err, &invalidArg) {
-		violations := make([]*errdetailspb.BadRequest_FieldViolation, 0, len(invalidArg.FieldViolations))
-		for _, violation := range invalidArg.FieldViolations {
-			violations = append(violations, &errdetailspb.BadRequest_FieldViolation{
+var converterFromGRPCByCode = map[codes.Code]func(message string, details []any) error{
+	codes.InvalidArgument: func(message string, details []any) error {
+		return commonerrors.NewInvalidArgument(message, fieldViolationsConverterFromGRPC(details)...)
+	},
+	codes.Unavailable: func(message string, details []any) error {
+		return commonerrors.NewUnavailable(message)
+	},
+}
+
+func fieldViolationsConverterFromGRPC(details []any) []commonerrors.FieldViolation {
+	violations := []commonerrors.FieldViolation{}
+	if len(details) != 0 {
+		badRequestDetail := details[0].(*errdetailspb.BadRequest)
+		for _, violation := range badRequestDetail.GetFieldViolations() {
+			violations = append(violations, commonerrors.FieldViolation{
 				Field:       violation.Field,
 				Description: violation.Description,
 				Reason:      violation.Reason,
 			})
 		}
-		return toGRPCError(codes.InvalidArgument, invalidArg.Message, &errdetailspb.BadRequest{FieldViolations: violations})
+	}
+	return violations
+}
+
+func ToGRPCError(err error) error {
+	invalidArg := commonerrors.InvalidArgument{}
+	if errors.As(err, &invalidArg) {
+		return toGRPCError(codes.InvalidArgument, invalidArg.Message, fieldViolationsConverterToGRPC(invalidArg.FieldViolations)...)
 	}
 
 	unavailable := commonerrors.Unavailable{}
@@ -73,6 +62,20 @@ func ToGRPCError(err error) error {
 	slog.Error("Unsupported error type", slog.Any("error", err))
 	os.Exit(1)
 	return err
+}
+
+func fieldViolationsConverterToGRPC(violations []commonerrors.FieldViolation) []protoadapt.MessageV1 {
+	badRequestDetail := &errdetailspb.BadRequest{
+		FieldViolations: make([]*errdetailspb.BadRequest_FieldViolation, 0, len(violations)),
+	}
+	for _, violation := range violations {
+		badRequestDetail.FieldViolations = append(badRequestDetail.FieldViolations, &errdetailspb.BadRequest_FieldViolation{
+			Field:       violation.Field,
+			Description: violation.Description,
+			Reason:      violation.Reason,
+		})
+	}
+	return []protoadapt.MessageV1{badRequestDetail}
 }
 
 func toGRPCError(code codes.Code, message string, details ...protoadapt.MessageV1) error {
