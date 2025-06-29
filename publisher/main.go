@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -39,10 +40,12 @@ func main() {
 
 	client := brokerpb.NewBrokerClient(conn)
 
+	input := strings.Join(os.Args[1:], " ")
+
 	request := brokerpb.PublishRequest_builder{
 		Topic: toPtr("animals.cats"),
 		Messages: []*brokerpb.Message{brokerpb.Message_builder{
-			Payload: nil,
+			Payload: []byte(input),
 		}.Build()},
 	}.Build()
 	if _, err := client.Publish(context.Background(), request); err != nil {

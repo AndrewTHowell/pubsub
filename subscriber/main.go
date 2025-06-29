@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 
@@ -51,8 +50,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		for i, message := range messages.GetMessages() {
-			log.Printf("%d: %+s\n", i, string(message.GetPayload()))
+		for _, message := range messages.GetMessages() {
+			fmt.Println(string(message.GetPayload()))
 		}
 
 		request := brokerpb.MoveOffsetRequest_builder{
