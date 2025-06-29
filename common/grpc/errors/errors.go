@@ -42,6 +42,8 @@ func FromGRPCError(err error) error {
 			}
 		}
 		return commonerrors.NewInvalidArgument(st.Message(), violations...)
+	case codes.Unavailable:
+		return commonerrors.NewUnavailable(st.Message())
 	default:
 		slog.Error("Unsupported error type", slog.Any("error", err))
 		os.Exit(1)
@@ -61,6 +63,11 @@ func ToGRPCError(err error) error {
 			})
 		}
 		return toGRPCError(codes.InvalidArgument, invalidArg.Message, &errdetailspb.BadRequest{FieldViolations: violations})
+	}
+
+	unavailable := commonerrors.Unavailable{}
+	if errors.As(err, &unavailable) {
+		return toGRPCError(codes.Unavailable, unavailable.Message)
 	}
 
 	slog.Error("Unsupported error type", slog.Any("error", err))

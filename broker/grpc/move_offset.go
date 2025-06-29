@@ -40,11 +40,11 @@ func (Server) validateMoveOffsetRequest(request *brokerpb.MoveOffsetRequest) err
 			Field:  "limit",
 			Reason: "REQUIRED_FIELD",
 		})
-	} else if request.GetDelta() < 0 {
+	} else if request.GetDelta() < 1 {
 		violations = append(violations, commonerrors.FieldViolation{
 			Field:       "delta",
 			Reason:      "BELOW_MIN_VALUE",
-			Description: "Minimum value 0",
+			Description: "Minimum value 1",
 		})
 	}
 
