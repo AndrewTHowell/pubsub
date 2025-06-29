@@ -42,6 +42,12 @@ func (Server) validatePublishRequest(request *brokerpb.PublishRequest) error {
 				Field:  fmt.Sprintf("messages[%d].payload", i),
 				Reason: "REQUIRED_FIELD",
 			})
+		} else if len(msg.GetPayload()) == 0 {
+			violations = append(violations, commonerrors.FieldViolation{
+				Field:       fmt.Sprintf("messages[%d].payload", i),
+				Reason:      "BELOW_MIN_LENGTH",
+				Description: "Minimum length 1",
+			})
 		}
 	}
 
