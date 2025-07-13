@@ -2,6 +2,7 @@ package svc
 
 import (
 	"fmt"
+	"hash/fnv"
 	"sync"
 )
 
@@ -11,9 +12,11 @@ type TopicDefinition struct {
 }
 
 type Topic struct {
-	mutex         sync.RWMutex
-	messages      *[]Message
-	offsetByGroup map[string]int
+	mutex sync.RWMutex
+
+	partitioner         func(Message) int
+	partitionedMessages []*[]Message
+	offsetByGroup       map[string]int
 }
 
 func newTopic(numberOfPartitions int) (*Topic, error) {
@@ -21,9 +24,16 @@ func newTopic(numberOfPartitions int) (*Topic, error) {
 		return nil, fmt.Errorf("invalid number of partitions: must be greater than zero, got %d", numberOfPartitions)
 	}
 
+	hashPartitioner := func(m Message) int {
+		hash := fnv.New64a()
+		hash.Write([]byte(m.Key))
+		return int(hash.Sum64() % uint64(numberOfPartitions))
+	}
+
 	return &Topic{
-		messages:      &[]Message{},
-		offsetByGroup: map[string]int{},
+		partitioner:         hashPartitioner,
+		partitionedMessages: make([]*[]Message, numberOfPartitions),
+		offsetByGroup:       map[string]int{},
 	}, nil
 }
 
@@ -31,7 +41,10 @@ func (t *Topic) publish(newMessages ...Message) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	*t.messages = append(*t.messages, newMessages...)
+	for _, message := range newMessages {
+		messages := t.partitionedMessages[t.partitioner(message)]
+		*messages = append(*messages, message)
+	}
 	return nil
 }
 
