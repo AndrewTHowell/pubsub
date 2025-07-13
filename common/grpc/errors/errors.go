@@ -114,7 +114,7 @@ func fieldViolationsConverterToGRPC(violations []commonerrors.FieldViolation) []
 }
 
 func toGRPCError(code codes.Code, message string, details ...protoadapt.MessageV1) error {
-	st := status.New(codes.InvalidArgument, message)
+	st := status.New(code, message)
 	dst, err := st.WithDetails(details...)
 	if err != nil {
 		slog.Error("Constructing new gRPC status error with details", slog.Any("error", err))

@@ -3,6 +3,8 @@ package svc
 import (
 	"errors"
 	"fmt"
+
+	commonerrors "pubsub/common/errors"
 )
 
 type Broker struct {
@@ -49,7 +51,10 @@ func (b Broker) Subscribe(topicName, group string) (string, error) {
 func (b Broker) Poll(subscriberID string, maxBufferSize int) ([]Message, error) {
 	topicName, ok := b.topicNameBySubscriberID[subscriberID]
 	if !ok {
-		return nil, errSubscriberNotFound{subscriberID: subscriberID}
+		return nil, commonerrors.NewFailedPrecondition("invalid polling request", commonerrors.PreconditionFailure{
+			Type:        errSubscriberNotFound,
+			Description: fmt.Sprintf("Subscriber %q is not a registered subscriber of the broker.", subscriberID),
+		})
 	}
 	topic, ok := b.topicsByName[topicName]
 	if !ok {
@@ -62,7 +67,10 @@ func (b Broker) Poll(subscriberID string, maxBufferSize int) ([]Message, error) 
 func (b Broker) MoveOffset(subscriberID string, delta int) error {
 	topicName, ok := b.topicNameBySubscriberID[subscriberID]
 	if !ok {
-		return errSubscriberNotFound{subscriberID: subscriberID}
+		return commonerrors.NewFailedPrecondition("invalid polling request", commonerrors.PreconditionFailure{
+			Type:        errSubscriberNotFound,
+			Description: fmt.Sprintf("Subscriber %q is not a registered subscriber of the broker.", subscriberID),
+		})
 	}
 	topic, ok := b.topicsByName[topicName]
 	if !ok {

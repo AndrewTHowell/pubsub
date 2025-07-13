@@ -3,6 +3,7 @@ package svc
 import (
 	"fmt"
 	"hash/fnv"
+	commonerrors "pubsub/common/errors"
 	"sync"
 
 	uuid "github.com/satori/go.uuid"
@@ -89,7 +90,10 @@ func (t *Topic) poll(subscriberID string, maxBufferSize int) ([]Message, error) 
 
 	subscriber, ok := t.subscribersByID[subscriberID]
 	if !ok {
-		return nil, errSubscriberNotFound{subscriberID: subscriberID}
+		return nil, commonerrors.NewFailedPrecondition("invalid polling request", commonerrors.PreconditionFailure{
+			Type:        errSubscriberNotFound,
+			Description: fmt.Sprintf("Subscriber %q is not a registered subscriber of the broker.", subscriberID),
+		})
 	}
 
 	polledMessages := make([]Message, 0, maxBufferSize)
@@ -121,7 +125,10 @@ func (t *Topic) moveOffset(subscriberID string, delta int) error {
 
 	subscriber, ok := t.subscribersByID[subscriberID]
 	if !ok {
-		return errSubscriberNotFound{subscriberID: subscriberID}
+		return commonerrors.NewFailedPrecondition("invalid polling request", commonerrors.PreconditionFailure{
+			Type:        errSubscriberNotFound,
+			Description: fmt.Sprintf("Subscriber %q is not a registered subscriber of the broker.", subscriberID),
+		})
 	}
 
 	remainingDelta := delta
