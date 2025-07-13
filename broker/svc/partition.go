@@ -2,7 +2,6 @@ package svc
 
 import (
 	"sync"
-	"time"
 )
 
 type partition struct {
@@ -19,35 +18,31 @@ func newPartition() *partition {
 	}
 }
 
-func (p *partition) publish(now time.Time, newMessages ...Message) error {
+func (p *partition) publish(newMessages ...Message) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	for _, message := range newMessages {
-		message.Timestamp = now
-		*p.messages = append(*p.messages, message)
-	}
-	return nil
+	*p.messages = append(*p.messages, newMessages...)
 }
 
-func (p *partition) poll(group string, limit int) ([]Message, error) {
+func (p *partition) poll(group string, limit int) []Message {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 
 	offset := p.offsetByGroup[group]
 	if offset == len(*p.messages) {
 		// Group has polled all messages in this partition.
-		return nil, nil
+		return nil
 	}
 
 	end := min(offset+limit, len(*p.messages))
 	polledMessages := *p.messages
-	return polledMessages[offset:end], nil
+	return polledMessages[offset:end]
 }
 
 // Move the offset by the given delta. The given delta can exceed the current partition, so the
 // remainder is returned.
-func (p *partition) moveOffset(group string, delta int) (int, error) {
+func (p *partition) moveOffset(group string, delta int) int {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -55,5 +50,5 @@ func (p *partition) moveOffset(group string, delta int) (int, error) {
 	newOffset := min(offset+delta, len(*p.messages))
 	p.offsetByGroup[group] = newOffset
 
-	return offset + delta - newOffset, nil
+	return offset + delta - newOffset
 }

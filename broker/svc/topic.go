@@ -18,19 +18,15 @@ type TopicDefinition struct {
 type topic struct {
 	mutex sync.RWMutex
 
-	name               string
-	numberOfPartitions int
-
+	name            string
+	partitions      []*partition
 	partitioner     func(Message) int
 	subscribersByID map[string]subscriber
-
-	partitionedMessages      []*[]Message
-	offsetByPartitionByGroup map[string]map[int]int
 }
 
 type subscriber struct {
-	group      string
-	partitions []int
+	group        string
+	partitionIDs []int
 }
 
 func newTopic(name string, numberOfPartitions int) (*topic, error) {
@@ -43,16 +39,14 @@ func newTopic(name string, numberOfPartitions int) (*topic, error) {
 		hash.Write([]byte(m.Key))
 		return int(hash.Sum64() % uint64(numberOfPartitions))
 	}
-	partitionedMessages := make([]*[]Message, 0, numberOfPartitions)
+	partitions := make([]*partition, 0, numberOfPartitions)
 	for range numberOfPartitions {
-		partitionedMessages = append(partitionedMessages, &[]Message{})
+		partitions = append(partitions, newPartition())
 	}
 	return &topic{
-		name:                     name,
-		numberOfPartitions:       numberOfPartitions,
-		partitioner:              hashPartitioner,
-		partitionedMessages:      partitionedMessages,
-		offsetByPartitionByGroup: map[string]map[int]int{},
+		name:        name,
+		partitions:  partitions,
+		partitioner: hashPartitioner,
 	}, nil
 }
 
@@ -63,8 +57,8 @@ func (t *topic) publish(newMessages ...Message) error {
 	now := time.Now().UTC()
 	for _, message := range newMessages {
 		message.Timestamp = now
-		messages := t.partitionedMessages[t.partitioner(message)]
-		*messages = append(*messages, message)
+		partition := t.partitions[t.partitioner(message)]
+		partition.publish(message)
 	}
 	return nil
 }
@@ -73,17 +67,16 @@ func (t *topic) subscribe(group string) string {
 	subscriberID := uuid.NewV4().String()
 
 	// Naive (dumb) assignment of partitions: reassign all to new subscriber.
-	partitions := make([]int, 0, t.numberOfPartitions)
-	for i := range t.numberOfPartitions {
+	partitions := make([]int, 0, len(t.partitions))
+	for i := range len(t.partitions) {
 		partitions = append(partitions, i)
 	}
 	t.subscribersByID = map[string]subscriber{
 		subscriberID: {
-			group:      group,
-			partitions: partitions,
+			group:        group,
+			partitionIDs: partitions,
 		},
 	}
-
 	return subscriberID
 }
 
@@ -100,25 +93,18 @@ func (t *topic) poll(subscriberID string, maxBufferSize int) ([]Message, error) 
 	}
 
 	polledMessages := make([]Message, 0, maxBufferSize)
+	limit := maxBufferSize
+	for _, partitionId := range subscriber.partitionIDs {
+		partition := t.partitions[partitionId]
+		messages := partition.poll(subscriber.group, limit)
 
-	offsetByPartition := t.offsetByPartitionByGroup[subscriber.group]
-	for _, partition := range subscriber.partitions {
-		offset := offsetByPartition[partition]
-		if offset == len(*t.partitionedMessages[partition]) {
-			// Group has polled all messages in this partition.
-			continue
-		}
-
-		end := min(offset+(maxBufferSize-len(polledMessages)), len(*t.partitionedMessages[partition]))
-
-		messages := *t.partitionedMessages[partition]
-		polledMessages = append(polledMessages, messages[offset:end]...)
+		polledMessages = append(polledMessages, messages...)
+		limit -= len(messages)
 
 		if len(polledMessages) == maxBufferSize {
 			break
 		}
 	}
-
 	return polledMessages, nil
 }
 
@@ -136,20 +122,10 @@ func (t *topic) moveOffset(subscriberID string, delta int) error {
 
 	remainingDelta := delta
 
-	if _, ok := t.offsetByPartitionByGroup[subscriber.group]; !ok {
-		t.offsetByPartitionByGroup[subscriber.group] = map[int]int{}
-	}
-	offsetByPartition := t.offsetByPartitionByGroup[subscriber.group]
-	for _, partition := range subscriber.partitions {
-		newOffset := min(offsetByPartition[partition]+remainingDelta, len(*t.partitionedMessages[partition]))
-		partitionDelta := newOffset - offsetByPartition[partition]
+	for _, partitionId := range subscriber.partitionIDs {
+		partition := t.partitions[partitionId]
 
-		if _, ok := offsetByPartition[partition]; !ok {
-			offsetByPartition[partition] = 0
-		}
-		offsetByPartition[partition] += partitionDelta
-		remainingDelta -= partitionDelta
-
+		remainingDelta = partition.moveOffset(subscriber.group, remainingDelta)
 		if remainingDelta == 0 {
 			break
 		}
