@@ -1,7 +1,11 @@
 ---
 type: yml
 config:
+  logging:
+    verbosity: debug
   port: 9123
   topics:
-    - animals.cats
-    - animals.dogs
+    - name: animals.cats
+      num_of_partitions: 2
+    - name: animals.dogs
+      num_of_partitions: 2
