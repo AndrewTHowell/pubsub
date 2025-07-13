@@ -14,4 +14,6 @@ The components communicate on localhost via gRPC.
 
 - Partitioning
 - Timestamping messages when received by broker
+- Multi-topic publisher
+  - Use topic key on message to decide where message should be stored
 - Multi-broker support?
