@@ -2,7 +2,7 @@ package svc
 
 import (
 	"fmt"
-	"hash/fnv"
+
 	commonerrors "pubsub/common/errors"
 	"sync"
 	"time"
@@ -13,6 +13,7 @@ import (
 type TopicDefinition struct {
 	Name               string
 	NumberOfPartitions int
+	PartitionStrategy  PartitionStrategy
 }
 
 type topic struct {
@@ -20,24 +21,23 @@ type topic struct {
 
 	name            string
 	partitions      []*partition
-	partitioner     func(Message) int
+	partitioner     partitioner
 	subscribersByID map[string]subscriber
 }
 
 type subscriber struct {
-	group        string
-	partitionIDs []int
+	group         string
+	partitionIdxs []int
 }
 
-func newTopic(name string, numberOfPartitions int) (*topic, error) {
+func newTopic(name string, numberOfPartitions int, partitionStrategy PartitionStrategy) (*topic, error) {
 	if numberOfPartitions < 1 {
-		return nil, fmt.Errorf("invalid number of partitions: must be greater than zero, got %d", numberOfPartitions)
+		return nil, fmt.Errorf("creating topic %q: number of partitions must be greater than zero, got %d", name, numberOfPartitions)
 	}
 
-	hashPartitioner := func(m Message) int {
-		hash := fnv.New64a()
-		hash.Write([]byte(m.Key))
-		return int(hash.Sum64() % uint64(numberOfPartitions))
+	partitioner, err := newPartitioner(partitionStrategy, numberOfPartitions)
+	if err != nil {
+		return nil, fmt.Errorf("creating topic %q: %w", name, err)
 	}
 	partitions := make([]*partition, 0, numberOfPartitions)
 	for range numberOfPartitions {
@@ -46,7 +46,7 @@ func newTopic(name string, numberOfPartitions int) (*topic, error) {
 	return &topic{
 		name:        name,
 		partitions:  partitions,
-		partitioner: hashPartitioner,
+		partitioner: partitioner,
 	}, nil
 }
 
@@ -57,7 +57,7 @@ func (t *topic) publish(newMessages ...Message) error {
 	now := time.Now().UTC()
 	for _, message := range newMessages {
 		message.Timestamp = now
-		partition := t.partitions[t.partitioner(message)]
+		partition := t.partitions[t.partitioner.getPartitionIdx(message)]
 		partition.publish(message)
 	}
 	return nil
@@ -73,8 +73,8 @@ func (t *topic) subscribe(group string) string {
 	}
 	t.subscribersByID = map[string]subscriber{
 		subscriberID: {
-			group:        group,
-			partitionIDs: partitions,
+			group:         group,
+			partitionIdxs: partitions,
 		},
 	}
 	return subscriberID
@@ -94,8 +94,8 @@ func (t *topic) poll(subscriberID string, maxBufferSize int) ([]Message, error) 
 
 	polledMessages := make([]Message, 0, maxBufferSize)
 	limit := maxBufferSize
-	for _, partitionID := range subscriber.partitionIDs {
-		partition := t.partitions[partitionID]
+	for _, partitionIdx := range subscriber.partitionIdxs {
+		partition := t.partitions[partitionIdx]
 		messages := partition.poll(subscriber.group, limit)
 
 		polledMessages = append(polledMessages, messages...)
@@ -122,8 +122,8 @@ func (t *topic) moveOffset(subscriberID string, delta int) error {
 
 	remainingDelta := delta
 
-	for _, partitionID := range subscriber.partitionIDs {
-		partition := t.partitions[partitionID]
+	for _, partitionIdx := range subscriber.partitionIdxs {
+		partition := t.partitions[partitionIdx]
 
 		remainingDelta = partition.moveOffset(subscriber.group, remainingDelta)
 		if remainingDelta == 0 {

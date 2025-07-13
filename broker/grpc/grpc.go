@@ -16,7 +16,15 @@ type Server struct {
 type Topic struct {
 	Name               string
 	NumberOfPartitions int
+	PartitionStrategy  PartitionStrategy
 }
+
+type PartitionStrategy int
+
+const (
+	HashPartition PartitionStrategy = iota
+	RoundRobinPartition
+)
 
 func NewServer(topics ...Topic) Server {
 	svcTopics := make([]svc.TopicDefinition, 0, len(topics))
@@ -24,6 +32,7 @@ func NewServer(topics ...Topic) Server {
 		svcTopics = append(svcTopics, svc.TopicDefinition{
 			Name:               t.Name,
 			NumberOfPartitions: t.NumberOfPartitions,
+			PartitionStrategy:  svc.PartitionStrategy(t.PartitionStrategy),
 		})
 	}
 	return Server{

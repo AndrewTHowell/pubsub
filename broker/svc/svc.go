@@ -1,6 +1,8 @@
 package svc
 
-import "time"
+import (
+	"time"
+)
 
 type Message struct {
 	Key string

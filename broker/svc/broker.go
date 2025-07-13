@@ -16,9 +16,9 @@ func NewBroker(topicDefs ...TopicDefinition) Broker {
 	topicsByName := make(map[string]*topic, len(topicDefs))
 	var errs error
 	for _, topicDef := range topicDefs {
-		topic, err := newTopic(topicDef.Name, topicDef.NumberOfPartitions)
+		topic, err := newTopic(topicDef.Name, topicDef.NumberOfPartitions, topicDef.PartitionStrategy)
 		if err != nil {
-			errs = errors.Join(errs, fmt.Errorf("invalid topic definition for topic %q: %w", topicDef.Name, err))
+			errs = errors.Join(errs, err)
 		}
 		topicsByName[topicDef.Name] = topic
 	}

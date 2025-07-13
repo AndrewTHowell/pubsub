@@ -49,6 +49,7 @@ func main() {
 		topics = append(topics, brokergrpc.Topic{
 			Name:               t.Name,
 			NumberOfPartitions: t.NumberOfPartitions,
+			PartitionStrategy:  brokergrpc.HashPartition,
 		})
 	}
 	brokerpb.RegisterBrokerServer(srv, brokergrpc.NewServer(topics...))
