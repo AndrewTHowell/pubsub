@@ -33,6 +33,7 @@ func (Server) convertToMessages(protoMessages ...*brokerpb.Message) []svc.Messag
 	messages := make([]svc.Message, len(protoMessages))
 	for i, protoMessage := range protoMessages {
 		messages[i] = svc.Message{
+			Key:     protoMessage.GetKey(),
 			Payload: protoMessage.GetPayload(),
 		}
 	}
@@ -43,6 +44,7 @@ func (Server) convertFromMessages(messages ...svc.Message) []*brokerpb.Message {
 	protoMessages := make([]*brokerpb.Message, len(messages))
 	for i, message := range messages {
 		protoMessages[i] = brokerpb.Message_builder{
+			Key:     &message.Key,
 			Payload: message.Payload,
 		}.Build()
 	}

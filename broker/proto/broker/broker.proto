@@ -37,5 +37,6 @@ message MoveOffsetRequest {
 }
 
 message Message {
-    bytes payload = 1;
+    string key = 1;
+    bytes payload = 2;
 }
