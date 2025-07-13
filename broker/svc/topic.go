@@ -16,11 +16,15 @@ type Topic struct {
 	offsetByGroup map[string]int
 }
 
-func newTopic(numberOfPartitions int) *Topic {
+func newTopic(numberOfPartitions int) (*Topic, error) {
+	if numberOfPartitions < 1 {
+		return nil, fmt.Errorf("invalid number of partitions: must be greater than zero, got %d", numberOfPartitions)
+	}
+
 	return &Topic{
 		messages:      &[]Message{},
 		offsetByGroup: map[string]int{},
-	}
+	}, nil
 }
 
 func (t *Topic) publish(newMessages ...Message) error {

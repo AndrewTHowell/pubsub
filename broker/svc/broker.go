@@ -1,13 +1,23 @@
 package svc
 
+import (
+	"errors"
+	"fmt"
+)
+
 type Broker struct {
 	topicsByName map[string]*Topic
 }
 
-func NewBroker(topics ...TopicDefinition) Broker {
-	topicsByName := make(map[string]*Topic, len(topics))
-	for _, topic := range topics {
-		topicsByName[topic.Name] = newTopic(topic.NumberOfPartitions)
+func NewBroker(topicDefs ...TopicDefinition) Broker {
+	topicsByName := make(map[string]*Topic, len(topicDefs))
+	var errs error
+	for _, topicDef := range topicDefs {
+		topic, err := newTopic(topicDef.NumberOfPartitions)
+		if err != nil {
+			errs = errors.Join(errs, fmt.Errorf("invalid topic definition for topic %q: %w", topicDef.Name, err))
+		}
+		topicsByName[topicDef.Name] = topic
 	}
 	return Broker{
 		topicsByName: topicsByName,
