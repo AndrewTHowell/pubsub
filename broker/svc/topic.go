@@ -94,8 +94,8 @@ func (t *topic) poll(subscriberID string, maxBufferSize int) ([]Message, error) 
 
 	polledMessages := make([]Message, 0, maxBufferSize)
 	limit := maxBufferSize
-	for _, partitionId := range subscriber.partitionIDs {
-		partition := t.partitions[partitionId]
+	for _, partitionID := range subscriber.partitionIDs {
+		partition := t.partitions[partitionID]
 		messages := partition.poll(subscriber.group, limit)
 
 		polledMessages = append(polledMessages, messages...)
@@ -122,8 +122,8 @@ func (t *topic) moveOffset(subscriberID string, delta int) error {
 
 	remainingDelta := delta
 
-	for _, partitionId := range subscriber.partitionIDs {
-		partition := t.partitions[partitionId]
+	for _, partitionID := range subscriber.partitionIDs {
+		partition := t.partitions[partitionID]
 
 		remainingDelta = partition.moveOffset(subscriber.group, remainingDelta)
 		if remainingDelta == 0 {
