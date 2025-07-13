@@ -28,6 +28,9 @@ var converterFromGRPCByCode = map[codes.Code]func(message string, details []any)
 	codes.FailedPrecondition: func(message string, details []any) error {
 		return commonerrors.NewFailedPrecondition(message, preconditionFailuresConverterFromGRPC(details)...)
 	},
+	codes.Internal: func(message string, details []any) error {
+		return commonerrors.NewInternal(message)
+	},
 	codes.InvalidArgument: func(message string, details []any) error {
 		return commonerrors.NewInvalidArgument(message, fieldViolationsConverterFromGRPC(details)...)
 	},
@@ -71,6 +74,11 @@ func ToGRPCError(err error) error {
 		return toGRPCError(codes.FailedPrecondition, failedPrecon.Message, preconditionFailuresConverterToGRPC(failedPrecon.PreconditionFailures)...)
 	}
 
+	internal := commonerrors.Internal{}
+	if errors.As(err, &internal) {
+		return toGRPCError(codes.Internal, internal.Message)
+	}
+
 	invalidArg := commonerrors.InvalidArgument{}
 	if errors.As(err, &invalidArg) {
 		return toGRPCError(codes.InvalidArgument, invalidArg.Message, fieldViolationsConverterToGRPC(invalidArg.FieldViolations)...)
@@ -81,9 +89,8 @@ func ToGRPCError(err error) error {
 		return toGRPCError(codes.Unavailable, unavailable.Message)
 	}
 
-	slog.Error("Unsupported error type", slog.Any("error", err))
-	os.Exit(1)
-	return err
+	slog.Error("Unsupported error type, defaulting to Internal", slog.Any("error", err))
+	return toGRPCError(codes.Internal, err.Error())
 }
 
 func preconditionFailuresConverterToGRPC(violations []commonerrors.PreconditionFailure) []protoadapt.MessageV1 {
