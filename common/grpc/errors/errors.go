@@ -25,12 +25,29 @@ func FromGRPCError(err error) error {
 }
 
 var converterFromGRPCByCode = map[codes.Code]func(message string, details []any) error{
+	codes.FailedPrecondition: func(message string, details []any) error {
+		return commonerrors.NewFailedPrecondition(message, preconditionFailuresConverterFromGRPC(details)...)
+	},
 	codes.InvalidArgument: func(message string, details []any) error {
 		return commonerrors.NewInvalidArgument(message, fieldViolationsConverterFromGRPC(details)...)
 	},
 	codes.Unavailable: func(message string, details []any) error {
 		return commonerrors.NewUnavailable(message)
 	},
+}
+
+func preconditionFailuresConverterFromGRPC(details []any) []commonerrors.PreconditionFailure {
+	failures := []commonerrors.PreconditionFailure{}
+	if len(details) != 0 {
+		preconditionFailureDetail := details[0].(*errdetailspb.PreconditionFailure)
+		for _, violation := range preconditionFailureDetail.GetViolations() {
+			failures = append(failures, commonerrors.PreconditionFailure{
+				Type:        violation.Type,
+				Description: violation.Description,
+			})
+		}
+	}
+	return failures
 }
 
 func fieldViolationsConverterFromGRPC(details []any) []commonerrors.FieldViolation {
@@ -49,6 +66,11 @@ func fieldViolationsConverterFromGRPC(details []any) []commonerrors.FieldViolati
 }
 
 func ToGRPCError(err error) error {
+	failedPrecon := commonerrors.FailedPrecondition{}
+	if errors.As(err, &failedPrecon) {
+		return toGRPCError(codes.FailedPrecondition, failedPrecon.Message, preconditionFailuresConverterToGRPC(failedPrecon.PreconditionFailures)...)
+	}
+
 	invalidArg := commonerrors.InvalidArgument{}
 	if errors.As(err, &invalidArg) {
 		return toGRPCError(codes.InvalidArgument, invalidArg.Message, fieldViolationsConverterToGRPC(invalidArg.FieldViolations)...)
@@ -62,6 +84,19 @@ func ToGRPCError(err error) error {
 	slog.Error("Unsupported error type", slog.Any("error", err))
 	os.Exit(1)
 	return err
+}
+
+func preconditionFailuresConverterToGRPC(violations []commonerrors.PreconditionFailure) []protoadapt.MessageV1 {
+	preconditionFailureDetail := &errdetailspb.PreconditionFailure{
+		Violations: make([]*errdetailspb.PreconditionFailure_Violation, 0, len(violations)),
+	}
+	for _, violation := range violations {
+		preconditionFailureDetail.Violations = append(preconditionFailureDetail.Violations, &errdetailspb.PreconditionFailure_Violation{
+			Type:        violation.Type,
+			Description: violation.Description,
+		})
+	}
+	return []protoadapt.MessageV1{preconditionFailureDetail}
 }
 
 func fieldViolationsConverterToGRPC(violations []commonerrors.FieldViolation) []protoadapt.MessageV1 {
