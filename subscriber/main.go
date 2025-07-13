@@ -24,6 +24,7 @@ func main() {
 		slog.Error("Parsing config", slog.Any("error", err))
 		os.Exit(1)
 	}
+	slog.Debug("Config loaded", slog.Any("config", cfg))
 
 	var opts []grpc.DialOption
 	opts = append(opts,

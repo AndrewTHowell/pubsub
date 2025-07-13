@@ -26,6 +26,7 @@ func main() {
 		slog.Error("Parsing config", slog.Any("error", err))
 		os.Exit(1)
 	}
+	slog.Debug("Config loaded", slog.Any("config", cfg))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", cfg.Port))
 	if err != nil {
