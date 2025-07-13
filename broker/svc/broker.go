@@ -49,7 +49,6 @@ func (b Broker) Subscribe(topicName, group string) (string, error) {
 }
 
 func (b Broker) Poll(subscriberID string, maxBufferSize int) ([]Message, error) {
-	return nil, fmt.Errorf("hi")
 	topicName, ok := b.topicNameBySubscriberID[subscriberID]
 	if !ok {
 		return nil, commonerrors.NewFailedPrecondition("invalid polling request", commonerrors.PreconditionFailure{

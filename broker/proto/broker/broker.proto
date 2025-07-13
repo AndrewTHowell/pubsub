@@ -8,6 +8,7 @@ option go_package = "pubsub/broker/proto/broker";
 package pubsub.broker;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 service Broker {
     rpc Publish(PublishRequest) returns (google.protobuf.Empty) {}
@@ -46,5 +47,6 @@ message MoveOffsetRequest {
 
 message Message {
     string key = 1;
-    bytes payload = 2;
+    google.protobuf.Timestamp timestamp = 2;
+    bytes payload = 3;
 }

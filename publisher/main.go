@@ -46,6 +46,7 @@ func main() {
 	request := brokerpb.PublishRequest_builder{
 		Topic: toPtr("animals.cats"),
 		Messages: []*brokerpb.Message{brokerpb.Message_builder{
+			Key:     toPtr("key"),
 			Payload: []byte(input),
 		}.Build()},
 	}.Build()

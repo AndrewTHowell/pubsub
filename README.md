@@ -32,7 +32,6 @@ Stale Subscribers are not currently removed automatically.
     duplicate processing!
   - Should the Subscriber know what partitions it's assigned, perhaps for observability in case it's
     not assigned any?
-- Timestamping messages when received by broker
 - Multi-topic publisher
   - Use topic key on message to decide where message should be stored
 - Multi-broker support?

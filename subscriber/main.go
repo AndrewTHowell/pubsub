@@ -61,7 +61,7 @@ func main() {
 		}
 
 		for _, message := range resp.GetMessages() {
-			fmt.Println(string(message.GetPayload()))
+			fmt.Println(string(message.String()))
 		}
 
 		if len(resp.GetMessages()) == 0 {

@@ -5,6 +5,7 @@ import (
 	"hash/fnv"
 	commonerrors "pubsub/common/errors"
 	"sync"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -59,7 +60,9 @@ func (t *Topic) publish(newMessages ...Message) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
+	now := time.Now().UTC()
 	for _, message := range newMessages {
+		message.Timestamp = now
 		messages := t.partitionedMessages[t.partitioner(message)]
 		*messages = append(*messages, message)
 	}
