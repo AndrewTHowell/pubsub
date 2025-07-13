@@ -2,7 +2,7 @@
 type: yml
 config:
   logging:
-    verbosity: debug
+    verbosity: info
   port: 9123
   topics:
     - name: animals.cats

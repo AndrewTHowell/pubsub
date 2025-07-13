@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"fmt"
 	"log/slog"
 )
 
@@ -9,14 +8,18 @@ type Config struct {
 	Verbosity string `koanf:"verbosity"`
 }
 
-func SetLevel(cfg Config) error {
+func SetLevel(cfg Config) {
 	loggingLevel := slog.LevelInfo
 	switch cfg.Verbosity {
+	case "":
+		// If no verbosity is given, default to Info.
+		loggingLevel = slog.LevelInfo
 	case "debug":
 		loggingLevel = slog.LevelDebug
+	case "info":
+		loggingLevel = slog.LevelInfo
 	default:
-		return fmt.Errorf("invalid logging verbosity: %q", cfg.Verbosity)
+		slog.Warn("Invalid logging verbosity provided, defaulting to Info level", slog.Any("verbosity", cfg.Verbosity))
 	}
 	slog.SetLogLoggerLevel(loggingLevel)
-	return nil
 }
