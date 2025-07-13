@@ -11,9 +11,21 @@ type Server struct {
 	svc *svc.Broker
 }
 
-func NewServer(topics ...string) Server {
+type Topic struct {
+	Name               string
+	NumberOfPartitions int
+}
+
+func NewServer(topics ...Topic) Server {
+	svcTopics := make([]svc.Topic, 0, len(topics))
+	for _, t := range topics {
+		svcTopics = append(svcTopics, svc.Topic{
+			Name:               t.Name,
+			NumberOfPartitions: t.NumberOfPartitions,
+		})
+	}
 	return Server{
-		svc: svc.New(topics...),
+		svc: svc.New(svcTopics...),
 	}
 }
 

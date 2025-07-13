@@ -27,23 +27,28 @@ type Message struct {
 	Payload []byte
 }
 
-func New(topics ...string) *Broker {
+type Broker struct {
+	mutex                sync.RWMutex
+	messagesByTopic      map[string]*[]Message
+	offsetByGroupByTopic map[string]map[string]int
+}
+
+type Topic struct {
+	Name               string
+	NumberOfPartitions int
+}
+
+func New(topics ...Topic) *Broker {
 	messagesByTopic := make(map[string]*[]Message, len(topics))
 	offsetByGroupByTopic := make(map[string]map[string]int, len(topics))
 	for _, topic := range topics {
-		messagesByTopic[topic] = &[]Message{}
-		offsetByGroupByTopic[topic] = map[string]int{}
+		messagesByTopic[topic.Name] = &[]Message{}
+		offsetByGroupByTopic[topic.Name] = map[string]int{}
 	}
 	return &Broker{
 		messagesByTopic:      messagesByTopic,
 		offsetByGroupByTopic: offsetByGroupByTopic,
 	}
-}
-
-type Broker struct {
-	mutex                sync.RWMutex
-	messagesByTopic      map[string]*[]Message
-	offsetByGroupByTopic map[string]map[string]int
 }
 
 func (b *Broker) Publish(topic string, newMessages ...Message) error {

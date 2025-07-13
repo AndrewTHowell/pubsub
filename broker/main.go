@@ -43,9 +43,13 @@ func main() {
 	}
 
 	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(grpcerrors.UnaryServerInterceptor))
-	topics := []string{}
+
+	topics := make([]brokergrpc.Topic, 0, len(cfg.Topics))
 	for _, t := range cfg.Topics {
-		topics = append(topics, t.Name)
+		topics = append(topics, brokergrpc.Topic{
+			Name:               t.Name,
+			NumberOfPartitions: t.NumberOfPartitions,
+		})
 	}
 	brokerpb.RegisterBrokerServer(srv, brokergrpc.NewServer(topics...))
 
