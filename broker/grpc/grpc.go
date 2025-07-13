@@ -8,7 +8,7 @@ import (
 type Server struct {
 	brokerpb.UnimplementedBrokerServer
 
-	svc *svc.Broker
+	svc svc.Broker
 }
 
 type Topic struct {
@@ -17,15 +17,15 @@ type Topic struct {
 }
 
 func NewServer(topics ...Topic) Server {
-	svcTopics := make([]svc.Topic, 0, len(topics))
+	svcTopics := make([]svc.TopicDefinition, 0, len(topics))
 	for _, t := range topics {
-		svcTopics = append(svcTopics, svc.Topic{
+		svcTopics = append(svcTopics, svc.TopicDefinition{
 			Name:               t.Name,
 			NumberOfPartitions: t.NumberOfPartitions,
 		})
 	}
 	return Server{
-		svc: svc.New(svcTopics...),
+		svc: svc.NewBroker(svcTopics...),
 	}
 }
 
