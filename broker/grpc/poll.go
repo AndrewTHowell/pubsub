@@ -13,7 +13,7 @@ func (s Server) Poll(ctx context.Context, request *brokerpb.PollRequest) (*broke
 		return nil, fmt.Errorf("polling: %w", err)
 	}
 
-	messages, err := s.svc.Poll(request.GetTopic(), request.GetGroup(), int(request.GetLimit()))
+	messages, err := s.svc.Poll(request.GetSubscriberId(), int(request.GetLimit()))
 	if err != nil {
 		return nil, fmt.Errorf("polling: %w", err)
 	}
@@ -25,15 +25,9 @@ func (s Server) Poll(ctx context.Context, request *brokerpb.PollRequest) (*broke
 
 func (Server) validatePollRequest(request *brokerpb.PollRequest) error {
 	violations := []commonerrors.FieldViolation{}
-	if !request.HasTopic() {
+	if !request.HasSubscriberId() {
 		violations = append(violations, commonerrors.FieldViolation{
-			Field:  "topic",
-			Reason: "REQUIRED_FIELD",
-		})
-	}
-	if !request.HasGroup() {
-		violations = append(violations, commonerrors.FieldViolation{
-			Field:  "group",
+			Field:  "subscriber_id",
 			Reason: "REQUIRED_FIELD",
 		})
 	}

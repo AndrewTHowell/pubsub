@@ -13,6 +13,9 @@ The components communicate on localhost via gRPC.
 # Roadmap
 
 - Partitioning
+  - Different partitioning strategies
+  - Sensible new subscriber rebalancing
+  - Rebalancing due to stale subscriber
 - Timestamping messages when received by broker
 - Multi-topic publisher
   - Use topic key on message to decide where message should be stored

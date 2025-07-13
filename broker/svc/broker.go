@@ -6,21 +6,23 @@ import (
 )
 
 type Broker struct {
-	topicsByName map[string]*Topic
+	topicsByName            map[string]*Topic
+	topicNameBySubscriberID map[string]string
 }
 
 func NewBroker(topicDefs ...TopicDefinition) Broker {
 	topicsByName := make(map[string]*Topic, len(topicDefs))
 	var errs error
 	for _, topicDef := range topicDefs {
-		topic, err := newTopic(topicDef.NumberOfPartitions)
+		topic, err := newTopic(topicDef.Name, topicDef.NumberOfPartitions)
 		if err != nil {
 			errs = errors.Join(errs, fmt.Errorf("invalid topic definition for topic %q: %w", topicDef.Name, err))
 		}
 		topicsByName[topicDef.Name] = topic
 	}
 	return Broker{
-		topicsByName: topicsByName,
+		topicsByName:            topicsByName,
+		topicNameBySubscriberID: map[string]string{},
 	}
 }
 
@@ -32,26 +34,40 @@ func (b Broker) Publish(topicName string, newMessages ...Message) error {
 	return topic.publish(newMessages...)
 }
 
-func (b Broker) Subscribe(topicName, group string, maxBufferSize int) (Poller, error) {
+func (b Broker) Subscribe(topicName, group string) (string, error) {
 	topic, ok := b.topicsByName[topicName]
 	if !ok {
-		return nil, errTopicNotFound{topic: topicName}
+		return "", errTopicNotFound{topic: topicName}
 	}
-	return topic.subscribe(group, maxBufferSize), nil
+
+	subscriberID := topic.subscribe(group)
+	b.topicNameBySubscriberID[subscriberID] = topicName
+
+	return subscriberID, nil
 }
 
-func (b Broker) Poll(topicName, group string, maxBufferSize int) ([]Message, error) {
+func (b Broker) Poll(subscriberID string, maxBufferSize int) ([]Message, error) {
+	topicName, ok := b.topicNameBySubscriberID[subscriberID]
+	if !ok {
+		return nil, errSubscriberNotFound{subscriberID: subscriberID}
+	}
 	topic, ok := b.topicsByName[topicName]
 	if !ok {
+		// This shouldn't happen, as the subscriber was found, meaning the topic existed in the past.
 		return nil, errTopicNotFound{topic: topicName}
 	}
-	return topic.poll(group, maxBufferSize)
+	return topic.poll(subscriberID, maxBufferSize)
 }
 
-func (b Broker) MoveOffset(topicName, group string, delta int) error {
+func (b Broker) MoveOffset(subscriberID string, delta int) error {
+	topicName, ok := b.topicNameBySubscriberID[subscriberID]
+	if !ok {
+		return errSubscriberNotFound{subscriberID: subscriberID}
+	}
 	topic, ok := b.topicsByName[topicName]
 	if !ok {
+		// This shouldn't happen, as the subscriber was found, meaning the topic existed in the past.
 		return errTopicNotFound{topic: topicName}
 	}
-	return topic.moveOffset(group, delta)
+	return topic.moveOffset(subscriberID, delta)
 }

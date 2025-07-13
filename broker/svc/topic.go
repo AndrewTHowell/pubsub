@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"hash/fnv"
 	"sync"
+
+	uuid "github.com/satori/go.uuid"
 )
 
 type TopicDefinition struct {
@@ -14,12 +16,22 @@ type TopicDefinition struct {
 type Topic struct {
 	mutex sync.RWMutex
 
-	partitioner         func(Message) int
-	partitionedMessages []*[]Message
-	offsetByGroup       map[string]int
+	name               string
+	numberOfPartitions int
+
+	partitioner     func(Message) int
+	subscribersByID map[string]subscriber
+
+	partitionedMessages      []*[]Message
+	offsetByPartitionByGroup map[string]map[int]int
 }
 
-func newTopic(numberOfPartitions int) (*Topic, error) {
+type subscriber struct {
+	group      string
+	partitions []int
+}
+
+func newTopic(name string, numberOfPartitions int) (*Topic, error) {
 	if numberOfPartitions < 1 {
 		return nil, fmt.Errorf("invalid number of partitions: must be greater than zero, got %d", numberOfPartitions)
 	}
@@ -29,11 +41,16 @@ func newTopic(numberOfPartitions int) (*Topic, error) {
 		hash.Write([]byte(m.Key))
 		return int(hash.Sum64() % uint64(numberOfPartitions))
 	}
-
+	partitionedMessages := make([]*[]Message, 0, numberOfPartitions)
+	for range numberOfPartitions {
+		partitionedMessages = append(partitionedMessages, &[]Message{})
+	}
 	return &Topic{
-		partitioner:         hashPartitioner,
-		partitionedMessages: make([]*[]Message, numberOfPartitions),
-		offsetByGroup:       map[string]int{},
+		name:                     name,
+		numberOfPartitions:       numberOfPartitions,
+		partitioner:              hashPartitioner,
+		partitionedMessages:      partitionedMessages,
+		offsetByPartitionByGroup: map[string]map[int]int{},
 	}, nil
 }
 
@@ -48,48 +65,88 @@ func (t *Topic) publish(newMessages ...Message) error {
 	return nil
 }
 
-func (t *Topic) subscribe(group string, maxBufferSize int) Poller {
-	return func() ([]Message, error) {
-		messages, err := t.poll(group, maxBufferSize)
-		if err != nil {
-			return nil, err
-		}
+func (t *Topic) subscribe(group string) string {
+	subscriberID := uuid.NewV4().String()
 
-		if err := t.moveOffset(group, len(messages)); err != nil {
-			return nil, err
-		}
-
-		return messages, nil
+	// Naive (dumb) assignment of partitions: reassign all to new subscriber.
+	partitions := make([]int, 0, t.numberOfPartitions)
+	for i := range t.numberOfPartitions {
+		partitions = append(partitions, i)
 	}
+	t.subscribersByID = map[string]subscriber{
+		subscriberID: {
+			group:      group,
+			partitions: partitions,
+		},
+	}
+
+	return subscriberID
 }
 
-func (t *Topic) poll(group string, maxBufferSize int) ([]Message, error) {
+func (t *Topic) poll(subscriberID string, maxBufferSize int) ([]Message, error) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
-	offset := t.offsetByGroup[group]
-	if offset == len(*t.messages) {
-		// Group has polled all messages.
-		return nil, nil
+	subscriber, ok := t.subscribersByID[subscriberID]
+	if !ok {
+		return nil, errSubscriberNotFound{subscriberID: subscriberID}
 	}
 
-	end := min(offset+maxBufferSize, len(*t.messages))
+	polledMessages := make([]Message, 0, maxBufferSize)
 
-	polledMessages := *t.messages
-	polledMessages = polledMessages[offset:end]
+	offsetByPartition := t.offsetByPartitionByGroup[subscriber.group]
+	for _, partition := range subscriber.partitions {
+		offset := offsetByPartition[partition]
+		if offset == len(*t.partitionedMessages[partition]) {
+			// Group has polled all messages in this partition.
+			continue
+		}
+
+		end := min(offset+(maxBufferSize-len(polledMessages)), len(*t.partitionedMessages[partition]))
+
+		messages := *t.partitionedMessages[partition]
+		polledMessages = append(polledMessages, messages[offset:end]...)
+
+		if len(polledMessages) == maxBufferSize {
+			break
+		}
+	}
 
 	return polledMessages, nil
 }
 
-func (t *Topic) moveOffset(group string, delta int) error {
+func (t *Topic) moveOffset(subscriberID string, delta int) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	newOffset := t.offsetByGroup[group] + delta
-	if newOffset > len(*t.messages) {
-		return fmt.Errorf("committing: %w", errInvalidOffsetDelta{delta: delta})
+	subscriber, ok := t.subscribersByID[subscriberID]
+	if !ok {
+		return errSubscriberNotFound{subscriberID: subscriberID}
 	}
-	t.offsetByGroup[group] = newOffset
 
+	remainingDelta := delta
+
+	if _, ok := t.offsetByPartitionByGroup[subscriber.group]; !ok {
+		t.offsetByPartitionByGroup[subscriber.group] = map[int]int{}
+	}
+	offsetByPartition := t.offsetByPartitionByGroup[subscriber.group]
+	for _, partition := range subscriber.partitions {
+		newOffset := min(offsetByPartition[partition]+remainingDelta, len(*t.partitionedMessages[partition]))
+		partitionDelta := newOffset - offsetByPartition[partition]
+
+		if _, ok := offsetByPartition[partition]; !ok {
+			offsetByPartition[partition] = 0
+		}
+		offsetByPartition[partition] += partitionDelta
+		remainingDelta -= partitionDelta
+
+		if remainingDelta == 0 {
+			break
+		}
+	}
+
+	if remainingDelta > 0 {
+		return fmt.Errorf("moving offset: %w", errInvalidOffsetDelta{delta: delta})
+	}
 	return nil
 }

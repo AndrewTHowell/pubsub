@@ -15,7 +15,7 @@ func (s Server) MoveOffset(ctx context.Context, request *brokerpb.MoveOffsetRequ
 		return nil, fmt.Errorf("moving offset: %w", err)
 	}
 
-	if err := s.svc.MoveOffset(request.GetTopic(), request.GetGroup(), int(request.GetDelta())); err != nil {
+	if err := s.svc.MoveOffset(request.GetSubscriberId(), int(request.GetDelta())); err != nil {
 		return nil, fmt.Errorf("moving offset: %w", err)
 	}
 	return nil, nil
@@ -23,15 +23,9 @@ func (s Server) MoveOffset(ctx context.Context, request *brokerpb.MoveOffsetRequ
 
 func (Server) validateMoveOffsetRequest(request *brokerpb.MoveOffsetRequest) error {
 	violations := []commonerrors.FieldViolation{}
-	if !request.HasTopic() {
+	if !request.HasSubscriberId() {
 		violations = append(violations, commonerrors.FieldViolation{
-			Field:  "topic",
-			Reason: "REQUIRED_FIELD",
-		})
-	}
-	if !request.HasGroup() {
-		violations = append(violations, commonerrors.FieldViolation{
-			Field:  "group",
+			Field:  "subscriber_id",
 			Reason: "REQUIRED_FIELD",
 		})
 	}

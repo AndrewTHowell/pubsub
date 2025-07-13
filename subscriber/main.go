@@ -40,11 +40,20 @@ func main() {
 
 	client := brokerpb.NewBrokerClient(conn)
 
+	resp, err := client.Subscribe(context.Background(), brokerpb.SubscribeRequest_builder{
+		Topic: toPtr("animals.cats"),
+		Group: toPtr("animals.cats.group"),
+	}.Build())
+	if err != nil {
+		slog.Error("Subscribing", slog.Any("error", err))
+		os.Exit(1)
+	}
+	subscriberID := resp.GetSubscriberId()
+
 	for {
 		resp, err := client.Poll(context.Background(), brokerpb.PollRequest_builder{
-			Topic: toPtr("animals.cats"),
-			Group: toPtr("animals.cats.group"),
-			Limit: toPtr(int32(10)),
+			SubscriberId: &subscriberID,
+			Limit:        toPtr(int32(10)),
 		}.Build())
 		if err != nil {
 			slog.Error("Polling", slog.Any("error", err))
@@ -60,9 +69,8 @@ func main() {
 		}
 
 		request := brokerpb.MoveOffsetRequest_builder{
-			Topic: toPtr("animals.cats"),
-			Group: toPtr("animals.cats.group"),
-			Delta: toPtr(int32(len(resp.GetMessages()))),
+			SubscriberId: &subscriberID,
+			Delta:        toPtr(int32(len(resp.GetMessages()))),
 		}.Build()
 		if _, err := client.MoveOffset(context.Background(), request); err != nil {
 			slog.Error("Moving offset", slog.Any("error", err))
