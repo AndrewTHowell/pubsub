@@ -15,7 +15,7 @@ type TopicDefinition struct {
 	NumberOfPartitions int
 }
 
-type Topic struct {
+type topic struct {
 	mutex sync.RWMutex
 
 	name               string
@@ -33,7 +33,7 @@ type subscriber struct {
 	partitions []int
 }
 
-func newTopic(name string, numberOfPartitions int) (*Topic, error) {
+func newTopic(name string, numberOfPartitions int) (*topic, error) {
 	if numberOfPartitions < 1 {
 		return nil, fmt.Errorf("invalid number of partitions: must be greater than zero, got %d", numberOfPartitions)
 	}
@@ -47,7 +47,7 @@ func newTopic(name string, numberOfPartitions int) (*Topic, error) {
 	for range numberOfPartitions {
 		partitionedMessages = append(partitionedMessages, &[]Message{})
 	}
-	return &Topic{
+	return &topic{
 		name:                     name,
 		numberOfPartitions:       numberOfPartitions,
 		partitioner:              hashPartitioner,
@@ -56,7 +56,7 @@ func newTopic(name string, numberOfPartitions int) (*Topic, error) {
 	}, nil
 }
 
-func (t *Topic) publish(newMessages ...Message) error {
+func (t *topic) publish(newMessages ...Message) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -69,7 +69,7 @@ func (t *Topic) publish(newMessages ...Message) error {
 	return nil
 }
 
-func (t *Topic) subscribe(group string) string {
+func (t *topic) subscribe(group string) string {
 	subscriberID := uuid.NewV4().String()
 
 	// Naive (dumb) assignment of partitions: reassign all to new subscriber.
@@ -87,7 +87,7 @@ func (t *Topic) subscribe(group string) string {
 	return subscriberID
 }
 
-func (t *Topic) poll(subscriberID string, maxBufferSize int) ([]Message, error) {
+func (t *topic) poll(subscriberID string, maxBufferSize int) ([]Message, error) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
@@ -122,7 +122,7 @@ func (t *Topic) poll(subscriberID string, maxBufferSize int) ([]Message, error) 
 	return polledMessages, nil
 }
 
-func (t *Topic) moveOffset(subscriberID string, delta int) error {
+func (t *topic) moveOffset(subscriberID string, delta int) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 

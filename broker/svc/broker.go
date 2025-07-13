@@ -8,12 +8,12 @@ import (
 )
 
 type Broker struct {
-	topicsByName            map[string]*Topic
+	topicsByName            map[string]*topic
 	topicNameBySubscriberID map[string]string
 }
 
 func NewBroker(topicDefs ...TopicDefinition) Broker {
-	topicsByName := make(map[string]*Topic, len(topicDefs))
+	topicsByName := make(map[string]*topic, len(topicDefs))
 	var errs error
 	for _, topicDef := range topicDefs {
 		topic, err := newTopic(topicDef.Name, topicDef.NumberOfPartitions)
