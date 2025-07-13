@@ -13,16 +13,13 @@ import (
 	brokerpb "pubsub/broker/proto/broker"
 	"pubsub/common/config"
 	grpcerrors "pubsub/common/grpc/errors"
+	"pubsub/common/logging"
 )
 
 type Config struct {
-	Logging LoggingConfig `koanf:"logging"`
-	Port    int           `koanf:"port"`
-	Topics  []Topic       `koanf:"topics"`
-}
-
-type LoggingConfig struct {
-	Verbosity string `koanf:"verbosity"`
+	Logging logging.Config `koanf:"logging"`
+	Port    int            `koanf:"port"`
+	Topics  []Topic        `koanf:"topics"`
 }
 
 type Topic struct {
@@ -36,17 +33,7 @@ func main() {
 		slog.Error("Parsing config", slog.Any("error", err))
 		os.Exit(1)
 	}
-
-	loggingLevel := slog.LevelInfo
-	switch cfg.Logging.Verbosity {
-	case "debug":
-		loggingLevel = slog.LevelDebug
-	default:
-		slog.Error("Invalid logging verbosity", slog.String("verbosity", cfg.Logging.Verbosity))
-		os.Exit(1)
-	}
-	slog.SetLogLoggerLevel(loggingLevel)
-
+	logging.SetLevel(cfg.Logging)
 	slog.Debug("Config loaded", slog.Any("config", cfg))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", cfg.Port))
