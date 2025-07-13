@@ -9,3 +9,9 @@ This is a simple PubSub system with 3 main components:
   - Able to subscribe to topics and receive messages from Publishers via the Broker
 
 The components communicate on localhost via gRPC.
+
+# Roadmap
+
+- Partitioning
+- Timestamping messages when received by broker
+- Multi-broker support?
